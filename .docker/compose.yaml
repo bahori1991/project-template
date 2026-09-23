@@ -1,0 +1,89 @@
+name: ${PROJECT_NAME}
+services:
+  base:
+    build:
+      context: ./base
+      dockerfile: Dockerfile
+      args:
+        UID: "${UID}"
+        GID: "${GID}"
+        USERNAME: ${USERNAME}
+    image: ${DEV_BASE_IMAGE}
+    profiles:
+      - build-only
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        DEV_BASE_IMAGE: ${DEV_BASE_IMAGE}
+        USERNAME: ${USERNAME}
+    init: true
+    stdin_open: true
+    tty: true
+    working_dir: /app
+    env_file: .env
+    environment:
+      NODE_ENV: development
+      SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-/tmp/ssh-agent.sock}
+      TERM: xterm-256color
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - ${DOTFILES_HOST}:/home/${USERNAME}/.config/dotfiles:ro
+      - ${DOTFILES_HOST}/nvim/lazy-lock.json:/home/${USERNAME}/.config/dotfiles/nvim/lazy-lock.json:rw
+      - ${HOME}/.local/share/nvim:/home/${USERNAME}/.local/share/nvim
+      - ${HOME}/.local/state:/home/${USERNAME}/.local/state
+      - ${HOME}/.ssh:/home/${USERNAME}/.ssh:ro
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        DEV_BASE_IMAGE: ${DEV_BASE_IMAGE}
+        USERNAME: ${USERNAME}
+    init: true
+    stdin_open: true
+    tty: true
+    working_dir: /app
+    env_file: .env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-/tmp/ssh-agent.sock}
+      TERM: xterm-256color
+      ConnectionStrings__PostgreSql: "Host=db;Port=5432;Database=db;Username=user;Password=password"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../backend:/app
+      - ${DOTFILES_HOST}:/home/${USERNAME}/.config/dotfiles:ro
+      - ${DOTFILES_HOST}/nvim/lazy-lock.json:/home/${USERNAME}/.config/dotfiles/nvim/lazy-lock.json:rw
+      - ${HOME}/.local/share/nvim:/home/${USERNAME}/.local/share/nvim
+      - ${HOME}/.local/state:/home/${USERNAME}/.local/state
+      - ${HOME}/.ssh:/home/${USERNAME}/.ssh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-U user"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+volumes:
+  pg_db:
+    name: pg_db
+
+
+

@@ -2,7 +2,7 @@
 
 # Install tree-sitter-cli by cargo
 FROM rust:1-bookworm AS tree-sitter-cli
-ARG TREE_SITTER_CLI_VERSION=0.26.11
+ARG TREE_SITTER_CLI_VERSION
 RUN apt update && \
     apt install -y --no-install-recommends clang pkg-config build-essential && \
     rm -rf /var/lib/apt/lists/* && \
@@ -14,11 +14,11 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Tokyo
 
-ARG UID=1000
-ARG GID=1000
-ARG USERNAME=user
-ARG EZA_VERSION=v0.23.5
-ARG NVIM_VERSION=v0.12.5
+ARG UID
+ARG GID
+ARG USERNAME
+ARG EZA_VERSION
+ARG NVIM_VERSION
 
 # Install essential-packages
 RUN apt update &&\
@@ -49,8 +49,10 @@ RUN curl -fsSL \
   ln -sf /opt/nvim/usr/bin/nvim /usr/local/bin/nvim && \
   rm -f /tmp/nvim.appimage
 
+# --- Delete a default user and default group 'ubuntu'
+RUN userdel -r ubuntu 2>/dev/null || true; groupdel ubuntu 2>/dev/null || true
+
 # --- Create a non-root user ---
 RUN groupadd -g "${GID}" "${USERNAME}" && \
     useradd -m -u "${UID}" -g "${GID}" -s /bin/bash "${USERNAME}"
-
 

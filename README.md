@@ -1,27 +1,37 @@
 # sample — Docker 開発環境
 
-このリポジトリは、フロントエンド・バックエンド・PostgreSQL を Docker Compose で動かすための開発用セットアップです。アプリケーション本体はリポジトリ直下の `frontend/` と `backend/` をコンテナにマウントして編集します。
+このリポジトリは、フロントエンド・バックエンド・PostgreSQL を Docker Compose で動かすための開発用セットアップです。アプリケーション本体はリポジトリ直下の `frontend/` と `backend/` をコンテナにマウントして編集します（現時点では各ディレクトリはプレースホルダーのみで、ここに Vite や ASP.NET プロジェクトを配置する想定です）。
 
-## 構成
+## リポジトリ構成
+
+```
+sample/
+├── frontend/           # フロントエンド（コンテナの /app にマウント）
+├── backend/            # バックエンド（コンテナの /app にマウント）
+├── .lazysql.toml       # ホストから DB に接続する LazySQL 用（任意）
+└── .containers/            # Compose・Dockerfile・環境変数
+    ├── compose.yaml
+    ├── .env.local      # 環境変数テンプレート（git 管理）
+    ├── .env            # 実際に使う設定（git 管理外。自分で作成）
+    ├── base/Dockerfile
+    ├── frontend/
+    │   ├── Dockerfile
+    │   └── entrypoint.sh
+    └── backend/
+        ├── Dockerfile
+        └── entrypoint.sh
+```
+
+## サービス構成
 
 | サービス | 説明 | ホストポート |
 |----------|------|--------------|
-| `frontend` | Ubuntu ベース + Vite+（Node） | 3000 |
-| `backend` | Ubuntu ベース + .NET SDK 10 | 8080 |
+| `frontend` | 共通ベース + [Vite+](https://vite.plus)（Node） | 3000 |
+| `backend` | 共通ベース + .NET SDK 10 | 8080 |
 | `db` | PostgreSQL 18 (bookworm) | 5432 |
-| `base` | 共通ベースイメージ（ビルド専用） | — |
+| `base` | Ubuntu 24.04 共通開発ベース（ビルド専用） | — |
 
-Docker 関連のファイルはすべて [`.docker/`](.docker/) 以下にあります。
-
-```
-.docker/
-├── compose.yaml
-├── .env.local          # 環境変数のテンプレート（リポジトリに含まれる）
-├── .env                # 実際に使う設定（git 管理外。自分で作成）
-├── base/Dockerfile     # 共通開発ベース（Neovim, ripgrep など）
-├── frontend/Dockerfile
-└── backend/Dockerfile
-```
+`base` イメージには、Neovim・ripgrep・fd・eza・tree-sitter CLI などが入ります。バージョンは `.env` の `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` で指定します。
 
 ## 前提条件
 
@@ -33,31 +43,34 @@ Docker 関連のファイルはすべて [`.docker/`](.docker/) 以下にあり�
 
 ### 1. 環境変数
 
-`.docker` ディレクトリで `.env` を用意します。テンプレートをコピーして値を編集してください。
+`.containers` ディレクトリで `.env` を用意します。テンプレートをコピーして値を編集してください。
 
 ```bash
-cd .docker
+cd .containers
 cp .env.local .env
 ```
 
-主な変数（[`.docker/.env.local`](.docker/.env.local) 参照）:
+主な変数（[`.containers/.env.local`](.containers/.env.local) 参照）:
 
 | 変数 | 説明 |
 |------|------|
+| `PROJECT_NAME` | Compose プロジェクト名（DB ボリューム名 `${PROJECT_NAME}_pg_db` にも使用） |
+| `DEV_BASE_IMAGE` | ベースイメージのタグ（例: `dev-base:ubuntu24.04`） |
 | `UID` / `GID` | コンテナ内ユーザー ID（通常は `id -u` / `id -g`） |
 | `USERNAME` | コンテナ内の Linux ユーザー名 |
-| `PROJECT_NAME` | Compose プロジェクト名 |
 | `DOTFILES_HOST` | ホスト側 dotfiles の絶対パス |
-| `DEV_BASE_IMAGE` | ベースイメージのタグ（例: `dev-base:ubuntu24.04`） |
+| `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` | `base` ビルド時に使うツールのバージョン |
+| `DATABASE_URL` | ホストから DB に接続する URL（アプリ・CLI 用。Compose の `db` と値を揃える） |
+| `POSTGRES_*` | ホスト側アプリ向けの PostgreSQL 接続情報（`POSTGRES_HOST` など） |
 
-`frontend` / `backend` サービスは追加で `.docker/.env` を `env_file` として読み込みます。アプリ固有の変数があれば同じ `.env` に追記してください。
+`frontend` / `backend` サービスは `.containers/.env` を `env_file` として読み込みます。アプリ固有の変数があれば同じ `.env` に追記してください。
 
 ### 2. ベースイメージのビルド
 
 `frontend` と `backend` は `DEV_BASE_IMAGE` を前提としています。先に `base` をビルドします（`build-only` プロファイル）。
 
 ```bash
-cd .docker
+cd .containers
 docker compose --profile build-only build base
 ```
 
@@ -71,7 +84,7 @@ docker compose up -d --build
 
 ## 日常的な操作
 
-いずれも **`.docker` ディレクトリ** で実行してください。
+いずれも **`.containers` ディレクトリ** で実行してください。
 
 ```bash
 # 起動
@@ -101,7 +114,7 @@ docker compose exec backend bash
 ### 例: 開発サーバー
 
 ```bash
-# フロントエンド（プロジェクトに合わせてコマンドは調整）
+# フロントエンド（Vite+ / Vite など、プロジェクトに合わせて調整）
 docker compose exec frontend bash -lc 'cd /app && <your dev command>'
 
 # バックエンド
@@ -110,19 +123,24 @@ docker compose exec backend bash -lc 'cd /app && dotnet run'
 
 ## データベース
 
+Compose の `db` サービスは次の固定値で起動します（[`.containers/compose.yaml`](.containers/compose.yaml)）。
+
 | 項目 | 値 |
 |------|-----|
 | ホストから接続 | `localhost:5432` |
-| コンテナ内から | `Host=db;Port=5432;Database=db;Username=user;Password=password` |
-| データ永続化 | Docker ボリューム `pg_db` |
+| 接続 URL（例） | `postgres://user:password@localhost:5432/db?sslmode=disable` |
+| コンテナ内から（.NET） | `Host=db;Port=5432;Database=db;Username=user;Password=password` |
+| データ永続化 | Docker ボリューム `${PROJECT_NAME}_pg_db` |
 
-`backend` サービスには上記接続文字列が `ConnectionStrings__PostgreSql` として既に設定されています。
+`backend` サービスにはコンテナ内向けの接続文字列が `ConnectionStrings__PostgreSql` として設定されています。
+
+ホストから [LazySQL](https://github.com/jorgerojas26/lazysql) などで接続する場合は、リポジトリ直下の [`.lazysql.toml`](.lazysql.toml) を参考にしてください（上記 URL と整合させます）。`.containers/.env` の `DATABASE_URL` / `POSTGRES_*` も同じ値に揃えると便利です。
 
 ## ボリュームとマウント
 
 - `../frontend` → `/app`（frontend）
 - `../backend` → `/app`（backend）
-- ホストの dotfiles、Neovim データ、`.ssh`（読み取り専用）を開発用にマウント
+- ホストの dotfiles、Neovim データ（`~/.local/share/nvim` / `~/.local/state`）、`.ssh`（読み取り専用）を開発用にマウント
 
 初回起動時、エントリポイントが `~/.config/dotfiles/scripts/symlink.sh` があれば一度だけ実行し、`~/.cache/container-init.done` で再実行を防ぎます。
 
@@ -134,7 +152,7 @@ docker compose exec backend bash -lc 'cd /app && dotnet run'
 
 **ポートが既に使用中**
 
-→ ホストで 3000 / 8080 / 5432 を使っているプロセスを止めるか、[`.docker/compose.yaml`](.docker/compose.yaml) の `ports` を変更してください。
+→ ホストで 3000 / 8080 / 5432 を使っているプロセスを止めるか、[`.containers/compose.yaml`](.containers/compose.yaml) の `ports` を変更してください。
 
 **権限エラー（作成ファイルの所有者）**
 
@@ -147,5 +165,6 @@ docker compose build --no-cache
 
 ## 参考
 
-- Compose 定義: [`.docker/compose.yaml`](.docker/compose.yaml)
-- 環境変数テンプレート: [`.docker/.env.local`](.docker/.env.local)
+- Compose 定義: [`.containers/compose.yaml`](.containers/compose.yaml)
+- 環境変数テンプレート: [`.containers/.env.local`](.containers/.env.local)
+- LazySQL 設定例: [`.lazysql.toml`](.lazysql.toml)

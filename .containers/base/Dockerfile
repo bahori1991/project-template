@@ -55,3 +55,12 @@ RUN userdel -r ubuntu 2>/dev/null || true; groupdel ubuntu 2>/dev/null || true
 # --- Create a non-root user ---
 RUN groupadd -g "${GID}" "${USERNAME}" && \
     useradd -m -u "${UID}" -g "${GID}" -s /bin/bash "${USERNAME}"
+
+# --- Shell: load dotfiles without symlinks (volume at runtime) ---
+RUN printf '%s\n' \
+    '[ -f "$HOME/.config/dotfiles/bash/.profile" ] && . "$HOME/.config/dotfiles/bash/.profile"' \
+      > "/home/${USERNAME}/.profile" && \
+    printf '%s\n' \
+    '[ -f "$HOME/.config/dotfiles/bash/.bashrc" ] && . "$HOME/.config/dotfiles/bash/.bashrc"' \ 
+      > "/home/${USERNAME}/.bashrc" && \
+    chown "${USERNAME}:${USERNAME}" "/home/${USERNAME}/.profile" "/home/${USERNAME}/.bashrc"

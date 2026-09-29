@@ -32,6 +32,8 @@ services:
       NODE_ENV: development
       SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-/tmp/ssh-agent.sock}
       TERM: xterm-256color
+      XDG_CONFIG_HOME: /home/${USERNAME}/.config/dotfiles
+      GIT_CONFIG_GLOBAL: /home/${USERNAME}/.config/dotfiles/git/config
     ports:
       - "3000:3000"
     volumes:
@@ -61,6 +63,8 @@ services:
       SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-/tmp/ssh-agent.sock}
       TERM: xterm-256color
       ConnectionStrings__PostgreSql: "Host=db;Port=5432;Database=db;Username=user;Password=password"
+      XDG_CONFIG_HOME: /home/${USERNAME}/.config/dotfiles
+      GIT_CONFIG_GLOBAL: /home/${USERNAME}/.config/dotfiles/git/config
     ports:
       - "8080:8080"
     volumes:
@@ -84,7 +88,7 @@ services:
     volumes:
       - pg_db:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready", "-U user"]
+      test: ["CMD-SHELL", "pg_isready -U user -d db"]
       interval: 5s
       timeout: 30s
       retries: 5

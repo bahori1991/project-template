@@ -55,4 +55,3 @@ RUN userdel -r ubuntu 2>/dev/null || true; groupdel ubuntu 2>/dev/null || true
 # --- Create a non-root user ---
 RUN groupadd -g "${GID}" "${USERNAME}" && \
     useradd -m -u "${UID}" -g "${GID}" -s /bin/bash "${USERNAME}"
-

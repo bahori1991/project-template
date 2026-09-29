@@ -31,11 +31,13 @@ sample/
 | `db` | PostgreSQL 18 (bookworm) | 5432 |
 | `base` | Ubuntu 24.04 共通開発ベース（ビルド専用） | — |
 
+`frontend` と `backend` は Compose で `user: "${UID}:${GID}"` と `userns_mode: keep-id` を指定し、ホストのユーザー ID と揃えた状態で動かします。bind mount した `frontend/` / `backend/` に作成したファイルの所有者がホスト側と一致しやすくなる想定です（user namespace 対応の Docker / Podman など）。
+
 `base` イメージには、Neovim・ripgrep・fd・eza・tree-sitter CLI などが入ります。バージョンは `.env` の `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` で指定します。
 
 ## 前提条件
 
-- [Docker Engine](https://docs.docker.com/engine/install/) と Docker Compose v2
+- [Docker Engine](https://docs.docker.com/engine/install/) と Docker Compose v2（`frontend` / `backend` の `userns_mode: keep-id` は、rootless Docker・[Podman](https://podman.io/)・Docker Desktop など user namespace に対応した環境を想定。通常の rootful Docker だけでは未対応のことがある）
 - ホスト上に dotfiles が `DOTFILES_HOST` で指定したパスに存在すること（エントリポイントで初回のみ `symlink.sh` を実行）
 - （任意）コンテナ内から Git over SSH を使う場合は、ホストの `~/.ssh` と `SSH_AUTH_SOCK` の設定
 
@@ -56,7 +58,7 @@ cp .env.local .env
 |------|------|
 | `PROJECT_NAME` | Compose プロジェクト名（DB ボリューム名 `${PROJECT_NAME}_pg_db` にも使用） |
 | `DEV_BASE_IMAGE` | ベースイメージのタグ（例: `dev-base:ubuntu24.04`） |
-| `UID` / `GID` | コンテナ内ユーザー ID（通常は `id -u` / `id -g`） |
+| `UID` / `GID` | ホストと同じユーザー / グループ ID（`id -u` / `id -g`）。`frontend` / `backend` の実行ユーザーと `base` ビルド時の ID に使う |
 | `USERNAME` | コンテナ内の Linux ユーザー名 |
 | `DOTFILES_HOST` | ホスト側 dotfiles の絶対パス |
 | `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` | `base` ビルド時に使うツールのバージョン |
@@ -142,6 +144,8 @@ Compose の `db` サービスは次の固定値で起動します（[`.container
 - `../backend` → `/app`（backend）
 - ホストの dotfiles、Neovim データ（`~/.local/share/nvim` / `~/.local/state`）、`.ssh`（読み取り専用）を開発用にマウント
 
+アプリコンテナは上記の `user` / `keep-id` 設定のため、`.env` の `UID` / `GID` をホストと揃えてから起動してください。
+
 初回起動時、エントリポイントが `~/.config/dotfiles/scripts/symlink.sh` があれば一度だけ実行し、`~/.cache/container-init.done` で再実行を防ぎます。
 
 ## トラブルシューティング
@@ -156,11 +160,12 @@ Compose の `db` サービスは次の固定値で起動します（[`.container
 
 **権限エラー（作成ファイルの所有者）**
 
-→ `.env` の `UID` / `GID` をホストのユーザーと揃えてからイメージを再ビルドしてください。
+→ `.env` の `UID` / `GID` がホストの `id -u` / `id -g` と一致しているか確認し、変更した場合は `base` とアプリイメージを再ビルドしてから再起動してください。`userns_mode: keep-id` は環境によって未対応のことがあり、その場合は Compose のエラーメッセージを確認してください。
 
 ```bash
 docker compose --profile build-only build --no-cache base
 docker compose build --no-cache
+docker compose up -d
 ```
 
 ## 参考

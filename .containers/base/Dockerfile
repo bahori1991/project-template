@@ -8,7 +8,7 @@ RUN apt update && \
     rm -rf /var/lib/apt/lists/* && \
     cargo install tree-sitter-cli --locked --version "${TREE_SITTER_CLI_VERSION}"
 
-# Install Ubuntu (docker-image)
+# Install Ubuntu (base image)
 FROM ubuntu:24.04
  
 ENV DEBIAN_FRONTEND=noninteractive

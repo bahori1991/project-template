@@ -1,6 +1,6 @@
-# sample — Docker 開発環境
+# sample — Podman 開発環境
 
-このリポジトリは、フロントエンド・バックエンド・PostgreSQL を Docker Compose で動かすための開発用セットアップです。アプリケーション本体はリポジトリ直下の `frontend/` と `backend/` をコンテナにマウントして編集します（現時点では各ディレクトリはプレースホルダーのみで、ここに Vite や ASP.NET プロジェクトを配置する想定です）。
+このリポジトリは、フロントエンド・バックエンド・PostgreSQL を Podman Compose で動かすための開発用セットアップです。アプリケーション本体はリポジトリ直下の `frontend/` と `backend/` をコンテナにマウントして編集します（現時点では各ディレクトリはプレースホルダーのみで、ここに Vite や ASP.NET プロジェクトを配置する想定です）。
 
 ## リポジトリ構成
 
@@ -9,7 +9,7 @@ sample/
 ├── frontend/           # フロントエンド（コンテナの /app にマウント）
 ├── backend/            # バックエンド（コンテナの /app にマウント）
 ├── .lazysql.toml       # ホストから DB に接続する LazySQL 用（任意）
-└── .containers/            # Compose・Dockerfile・環境変数
+└── .containers/            # Compose・ビルド定義・環境変数
     ├── compose.yaml
     ├── .env.local      # 環境変数テンプレート（git 管理）
     ├── .env            # 実際に使う設定（git 管理外。自分で作成）
@@ -22,6 +22,8 @@ sample/
         └── entrypoint.sh
 ```
 
+ビルド定義のファイル名は `Dockerfile` ですが、Podman からそのままビルドします（`Containerfile` でも可）。
+
 ## サービス構成
 
 | サービス | 説明 | ホストポート |
@@ -31,13 +33,13 @@ sample/
 | `db` | PostgreSQL 18 (bookworm) | 5432 |
 | `base` | Ubuntu 24.04 共通開発ベース（ビルド専用） | — |
 
-`frontend` と `backend` は Compose で `user: "${UID}:${GID}"` と `userns_mode: keep-id` を指定し、ホストのユーザー ID と揃えた状態で動かします。bind mount した `frontend/` / `backend/` に作成したファイルの所有者がホスト側と一致しやすくなる想定です（user namespace 対応の Docker / Podman など）。
+`frontend` と `backend` は Compose で `user: "${UID}:${GID}"` と `userns_mode: keep-id` を指定し、ホストのユーザー ID と揃えた状態で動かします。bind mount した `frontend/` / `backend/` に作成したファイルの所有者がホスト側と一致しやすくなります（Podman の rootless 実行を想定）。
 
 `base` イメージには、Neovim・ripgrep・fd・eza・tree-sitter CLI などが入ります。バージョンは `.env` の `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` で指定します。
 
 ## 前提条件
 
-- [Docker Engine](https://docs.docker.com/engine/install/) と Docker Compose v2（`frontend` / `backend` の `userns_mode: keep-id` は、rootless Docker・[Podman](https://podman.io/)・Docker Desktop など user namespace に対応した環境を想定。通常の rootful Docker だけでは未対応のことがある）
+- [Podman](https://podman.io/docs/installation) と [Podman Compose](https://github.com/containers/podman-compose)（または Podman 4.7+ 付属の `podman compose` サブコマンド）
 - ホスト上に dotfiles が `DOTFILES_HOST` で指定したパスに存在すること（エントリポイントで初回のみ `symlink.sh` を実行）
 - （任意）コンテナ内から Git over SSH を使う場合は、ホストの `~/.ssh` と `SSH_AUTH_SOCK` の設定
 
@@ -73,13 +75,13 @@ cp .env.local .env
 
 ```bash
 cd .containers
-docker compose --profile build-only build base
+podman compose --profile build-only build base
 ```
 
 ### 3. サービスの起動
 
 ```bash
-docker compose up -d --build
+podman compose up -d --build
 ```
 
 `db` のヘルスチェックが通るまで待ってから `backend` が起動します。
@@ -90,25 +92,25 @@ docker compose up -d --build
 
 ```bash
 # 起動
-docker compose up -d
+podman compose up -d
 
 # 停止
-docker compose down
+podman compose down
 
 # 停止（DB ボリュームも削除）
-docker compose down -v
+podman compose down -v
 
 # ログ
-docker compose logs -f
-docker compose logs -f backend
+podman compose logs -f
+podman compose logs -f backend
 
 # イメージの再ビルド
-docker compose build
-docker compose up -d --build
+podman compose build
+podman compose up -d --build
 
 # コンテナに入る（対話シェル）
-docker compose exec frontend bash
-docker compose exec backend bash
+podman compose exec frontend bash
+podman compose exec backend bash
 ```
 
 各アプリコンテナのデフォルト CMD は `sleep infinity` です。開発サーバーや `dotnet run` はコンテナ内で手動実行する想定です。
@@ -117,10 +119,10 @@ docker compose exec backend bash
 
 ```bash
 # フロントエンド（Vite+ / Vite など、プロジェクトに合わせて調整）
-docker compose exec frontend bash -lc 'cd /app && <your dev command>'
+podman compose exec frontend bash -lc 'cd /app && <your dev command>'
 
 # バックエンド
-docker compose exec backend bash -lc 'cd /app && dotnet run'
+podman compose exec backend bash -lc 'cd /app && dotnet run'
 ```
 
 ## データベース
@@ -132,7 +134,7 @@ Compose の `db` サービスは次の固定値で起動します（[`.container
 | ホストから接続 | `localhost:5432` |
 | 接続 URL（例） | `postgres://user:password@localhost:5432/db?sslmode=disable` |
 | コンテナ内から（.NET） | `Host=db;Port=5432;Database=db;Username=user;Password=password` |
-| データ永続化 | Docker ボリューム `${PROJECT_NAME}_pg_db` |
+| データ永続化 | Podman ボリューム `${PROJECT_NAME}_pg_db` |
 
 `backend` サービスにはコンテナ内向けの接続文字列が `ConnectionStrings__PostgreSql` として設定されています。
 
@@ -152,7 +154,7 @@ Compose の `db` サービスは次の固定値で起動します（[`.container
 
 **`DEV_BASE_IMAGE` が見つからない / frontend・backend のビルドが失敗する**
 
-→ `docker compose --profile build-only build base` を実行し、`DEV_BASE_IMAGE` のタグが `.env` と一致しているか確認してください。
+→ `podman compose --profile build-only build base` を実行し、`DEV_BASE_IMAGE` のタグが `.env` と一致しているか確認してください。
 
 **ポートが既に使用中**
 
@@ -160,16 +162,21 @@ Compose の `db` サービスは次の固定値で起動します（[`.container
 
 **権限エラー（作成ファイルの所有者）**
 
-→ `.env` の `UID` / `GID` がホストの `id -u` / `id -g` と一致しているか確認し、変更した場合は `base` とアプリイメージを再ビルドしてから再起動してください。`userns_mode: keep-id` は環境によって未対応のことがあり、その場合は Compose のエラーメッセージを確認してください。
+→ `.env` の `UID` / `GID` がホストの `id -u` / `id -g` と一致しているか確認し、変更した場合は `base` とアプリイメージを再ビルドしてから再起動してください。
 
 ```bash
-docker compose --profile build-only build --no-cache base
-docker compose build --no-cache
-docker compose up -d
+podman compose --profile build-only build --no-cache base
+podman compose build --no-cache
+podman compose up -d
 ```
+
+**`podman compose` が見つからない**
+
+→ 配布パッケージの `podman-compose` をインストールするか、Podman を新しいバージョンに更新してください。外部ツール `podman-compose`（Python）を使う場合は、README のコマンドを `podman-compose` に読み替えてください。
 
 ## 参考
 
 - Compose 定義: [`.containers/compose.yaml`](.containers/compose.yaml)
 - 環境変数テンプレート: [`.containers/.env.local`](.containers/.env.local)
 - LazySQL 設定例: [`.lazysql.toml`](.lazysql.toml)
+- Podman: [Installation](https://podman.io/docs/installation)

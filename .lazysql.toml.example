@@ -1,7 +1,0 @@
-[[database]]
-Name = "<Settings Name>"
-Provider = "<Database Proviers (ex: postgres)"
-URL = "postgres://<user>:<password>@<host>:<port>/<dbName>?sslmode=disable"
-DBName = "<Database Name>"
-Schemas = ["public"]
-ReadOnly = false

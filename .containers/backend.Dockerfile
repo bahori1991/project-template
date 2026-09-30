@@ -17,12 +17,8 @@ RUN apt update && \
 ENV DOTNET_CLI_HOME=${HOME}
 ENV PATH="/usr/share/dotnet:${PATH}"
 
-# --- Set Entrypoint ---
-COPY --chmod=755 entrypoint.sh /usr/local/bin/container-entrypoint.sh
-
 # --- Set User, Home directory and WORKDIR ---
 USER ${USERNAME}
 WORKDIR /app
 EXPOSE 8080
-ENTRYPOINT ["/usr/local/bin/container-entrypoint.sh"]
 CMD ["/usr/bin/sleep", "infinity"]

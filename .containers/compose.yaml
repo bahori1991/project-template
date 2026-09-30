@@ -2,8 +2,8 @@ name: ${PROJECT_NAME}
 services:
   base:
     build:
-      context: ./base
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: base.Dockerfile
       args:
         UID: ${UID}
         GID: ${GID}
@@ -16,8 +16,8 @@ services:
       - build-only
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend.Dockerfile
       args:
         DEV_BASE_IMAGE: ${DEV_BASE_IMAGE}
         USERNAME: ${USERNAME}
@@ -45,8 +45,8 @@ services:
       - ${HOME}/.ssh:/home/${USERNAME}/.ssh:ro
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend.Dockerfile
       args:
         DEV_BASE_IMAGE: ${DEV_BASE_IMAGE}
         USERNAME: ${USERNAME}

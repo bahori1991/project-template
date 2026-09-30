@@ -61,6 +61,6 @@ RUN printf '%s\n' \
     '[ -f "$HOME/.config/dotfiles/bash/.profile" ] && . "$HOME/.config/dotfiles/bash/.profile"' \
       > "/home/${USERNAME}/.profile" && \
     printf '%s\n' \
-    '[ -f "$HOME/.config/dotfiles/bash/.bashrc" ] && . "$HOME/.config/dotfiles/bash/.bashrc"' \ 
+    '[ -f "$HOME/.config/dotfiles/bash/.bashrc" ] && . "$HOME/.config/dotfiles/bash/.bashrc"' \
       > "/home/${USERNAME}/.bashrc" && \
     chown "${USERNAME}:${USERNAME}" "/home/${USERNAME}/.profile" "/home/${USERNAME}/.bashrc"

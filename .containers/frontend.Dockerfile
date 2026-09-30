@@ -18,11 +18,7 @@ RUN curl -fsSL --proto "=https" --tlsv1.2 https://vite.plus -o /tmp/vite-plus-in
     rm -f /tmp/vite-plus-install.sh
 ENV PATH="${VP_HOME}/bin:${PATH}"
 
-# --- Set Entrypoint ---
-COPY --chmod=755 entrypoint.sh /usr/local/bin/container-entrypoint.sh
-
 # --- Set frontend ---
 WORKDIR /app
 EXPOSE 3000
-ENTRYPOINT ["/usr/local/bin/container-entrypoint.sh"]
 CMD ["/usr/bin/sleep", "infinity"]

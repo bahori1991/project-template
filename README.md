@@ -1,112 +1,139 @@
-# sample — Podman 開発環境
+# sample — Docker 開発環境
 
-このリポジトリは、フロントエンド・バックエンド・PostgreSQL を Podman Compose で動かすための開発用セットアップです。アプリケーション本体はリポジトリ直下の `frontend/` と `backend/` をコンテナにマウントして編集します（リポジトリ clone 時点ではこれらのディレクトリは含まれないため、初回に自分で作成するか、Compose が空ディレクトリを作るのを利用してください。ここに Vite や ASP.NET プロジェクトを配置する想定です）。
+このリポジトリは、フロントエンド・バックエンド・PostgreSQL を Docker Compose で動かすための開発用セットアップです。アプリケーションはリポジトリ直下の `frontend/` と `backend/` をコンテナにマウントして編集します。
+
+- **frontend/** — [TanStack Start](https://tanstack.com/start) + [Vite+](https://vite.plus)（pnpm）。clone 時点で雛形が含まれます。
+- **backend/** — ASP.NET Core を置く想定（プロジェクトは各自で配置。接続設定の例は `backend/.env.example`）。
 
 ## リポジトリ構成
 
 ```
 sample/
-├── frontend/              # フロントエンド（コンテナの /app にマウント。各自作成）
-├── backend/               # バックエンド（コンテナの /app にマウント。各自作成）
-├── .lazysql.toml          # ホストから DB に接続する LazySQL 用（任意・git 管理外）
-└── .containers/           # Compose・ビルド定義・環境変数
-    ├── compose.yaml
-    ├── base.Dockerfile    # 共通開発ベース（build-only）
-    ├── frontend.Dockerfile
-    ├── backend.Dockerfile
-    ├── .env.local         # 環境変数テンプレート（git 管理）
-    └── .env               # 実際に使う設定（git 管理外。自分で作成）
+├── frontend/              # フロントエンド（コンテナの /app にマウント）
+├── backend/               # バックエンド（コンテナの /app にマウント）
+├── compose.yaml           # メインの Compose 定義
+├── compose.personal.yaml  # dotfiles / Neovim 用の上書き（任意）
+├── base.Dockerfile        # 共通開発ベース（build-only・最小構成）
+├── base.nvim.Dockerfile   # Neovim 等を含む開発ベース（build-only）
+├── frontend.Dockerfile
+├── backend.Dockerfile
+├── .env.example           # ルート `.env` のテンプレート（git 管理）
+├── .env                   # 実際に使う設定（git 管理外。自分で作成）
+└── .lazysql.toml          # ホストから DB に接続する LazySQL 用（任意・git 管理外）
 ```
 
-ビルド定義は `.containers/*.Dockerfile` です。Podman / Compose からそのままビルドします（`Containerfile` という名前でも同様に指定可能）。
+ビルド定義はリポジトリ直下の `*.Dockerfile` です。Compose からそのままビルドします。
 
 ## サービス構成
 
 | サービス | 説明 | ホストポート |
 |----------|------|--------------|
-| `frontend` | 共通ベース + [Vite+](https://vite.plus)（Node） | 3000 |
+| `frontend` | 共通ベース + Vite+（Node / pnpm） | 3000 |
 | `backend` | 共通ベース + .NET SDK 10 | 8080 |
 | `db` | PostgreSQL 18 (bookworm) | 5432 |
-| `base` | Ubuntu 24.04 共通開発ベース（ビルド専用） | — |
+| `base` | Ubuntu 24.04 共通開発ベース（ビルド専用・`dev:base`） | — |
+| `base-nvim` | 上記 + Neovim / eza / tree-sitter CLI（ビルド専用・`dev:nvim`） | — |
 
-`frontend` と `backend` は Compose で `user: "${UID}:${GID}"` と `userns_mode: keep-id` を指定し、ホストのユーザー ID と揃えた状態で動かします。bind mount した `frontend/` / `backend/` に作成したファイルの所有者がホスト側と一致しやすくなります（Podman の rootless 実行を想定）。
+`frontend` と `backend` は Compose で `user: "${UID}:${GID}"` を指定し、ホストのユーザー ID と揃えた状態で動かします。bind mount したソースに作成したファイルの所有者がホスト側と一致しやすくなります。
 
-`base` イメージには、Neovim・ripgrep・fd・eza・tree-sitter CLI などが入ります。バージョンは `.env` の `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` で指定します。
+ベースイメージは **`base`**（最小）と **`base-nvim`**（エディタ付き）の二つから選びます。`base-nvim` では Neovim・eza・tree-sitter CLI などが入ります。バージョンは `.env` の `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` で指定します（`base-nvim` ビルド時のみ）。
 
 ## 前提条件
 
-- [Podman](https://podman.io/docs/installation) と [Podman Compose](https://github.com/containers/podman-compose)（または Podman 4.7+ 付属の `podman compose` サブコマンド）
-- ホスト上に dotfiles が `DOTFILES_HOST` で指定したパスに存在すること（コンテナ内では `/home/${USERNAME}/.config/dotfiles` に read-only マウント）
+- [Docker Engine](https://docs.docker.com/engine/install/) と [Docker Compose V2](https://docs.docker.com/compose/install/)（`docker compose` サブコマンド）
+- マウント元パスを `.env` の `FRONTEND_HOST` / `BACKEND_HOST` に設定できること（通常はこのリポジトリ内の `frontend` / `backend` の絶対パス）
+- （任意）`compose.personal.yaml` を使う場合、ホスト上に dotfiles が `DOTFILES_HOST` で指定したパスに存在すること
 - （任意）コンテナ内から Git over SSH を使う場合は、ホストの `~/.ssh` と `SSH_AUTH_SOCK` の設定
 
 ## 初回セットアップ
 
 ### 1. 環境変数
 
-`.containers` ディレクトリで `.env` を用意します。テンプレートをコピーして値を編集してください。
+リポジトリ直下で `.env` を用意します。テンプレートをコピーして値を編集してください。
 
 ```bash
-cd .containers
-cp .env.local .env
+cp .env.example .env
 ```
 
-主な変数（[`.containers/.env.local`](.containers/.env.local) 参照）:
+主な変数（[`.env.example`](.env.example) 参照）:
 
 | 変数 | 説明 |
 |------|------|
 | `PROJECT_NAME` | Compose プロジェクト名（DB ボリューム名 `${PROJECT_NAME}_pg_db` にも使用） |
-| `DEV_BASE_IMAGE` | ベースイメージのタグ（例: `dev-base:ubuntu24.04`） |
-| `UID` / `GID` | ホストと同じユーザー / グループ ID（`id -u` / `id -g`）。`frontend` / `backend` の実行ユーザーと `base` ビルド時の ID に使う |
+| `DEV_BASE_IMAGE` | ベースイメージのタグ（`dev:base` または `dev:nvim`） |
+| `UID` / `GID` | ホストと同じユーザー / グループ ID（`id -u` / `id -g`）。`frontend` / `backend` の実行ユーザーとベースイメージビルド時の ID |
 | `USERNAME` | コンテナ内の Linux ユーザー名 |
-| `DOTFILES_HOST` | ホスト側 dotfiles の絶対パス |
-| `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` | `base` ビルド時に使うツールのバージョン |
+| `FRONTEND_HOST` / `BACKEND_HOST` | ホスト側のフロント / バックエンドディレクトリの絶対パス |
+| `DOTFILES_HOST` | （任意）ホスト側 dotfiles の絶対パス — `compose.personal.yaml` 利用時 |
+| `NVIM_VERSION` / `EZA_VERSION` / `TREE_SITTER_CLI_VERSION` | `base-nvim` ビルド時に使うツールのバージョン |
 
-`frontend` / `backend` サービスは `.containers/.env` を `env_file` として読み込みます。アプリ固有の変数があれば同じ `.env` に追記してください。
+`frontend` / `backend` サービスはルートの `.env` を `env_file` として読み込みます。アプリ固有の変数があれば同じ `.env` に追記するか、各ディレクトリの `.env.example` を参考にしてください。
 
-DB 接続は **バックエンド（コンテナ内）のみ** を想定しており、接続文字列は [compose.yaml](.containers/compose.yaml) の `ConnectionStrings__PostgreSql` で渡します（`.env` に `DATABASE_URL` 等は不要です）。
+DB 接続は **バックエンド（コンテナ内）のみ** を想定しており、接続文字列は [compose.yaml](compose.yaml) の `ConnectionStrings__PostgreSql` で渡します（ルート `.env` に `DATABASE_URL` 等は不要です）。
 
 ### 2. ベースイメージのビルド
 
-`frontend` と `backend` は `DEV_BASE_IMAGE` を前提としています。先に `base` をビルドします（`build-only` プロファイル）。
+`frontend` と `backend` は `DEV_BASE_IMAGE` を前提としています。先にベースをビルドします（`build-only` プロファイル）。
+
+最小構成:
 
 ```bash
-cd .containers
-podman compose --profile build-only build base
+docker compose --profile build-only build base
+```
+
+Neovim 付きベースを使う場合（`.env` で `DEV_BASE_IMAGE=dev:nvim` にしたうえで）:
+
+```bash
+docker compose --profile build-only build base-nvim
 ```
 
 ### 3. サービスの起動
 
 ```bash
-podman compose up -d --build
+docker compose up -d --build
+```
+
+dotfiles / Neovim のマウントも使う場合は、個人用 Compose を重ねて起動します。
+
+```bash
+docker compose -f compose.yaml -f compose.personal.yaml up -d --build
 ```
 
 `db` のヘルスチェックが通るまで待ってから `backend` が起動します。
 
+### 4. フロントエンドの依存関係（初回）
+
+コンテナ内で pnpm を実行する想定です。
+
+```bash
+docker compose exec frontend bash -lc 'cd /app && pnpm install'
+```
+
 ## 日常的な操作
 
-いずれも **`.containers` ディレクトリ** で実行してください。
+いずれも **リポジトリ直下** で実行してください（個人用オーバーレイを常に使う場合は `-f compose.yaml -f compose.personal.yaml` を付けてください）。
 
 ```bash
 # 起動
-podman compose up -d
+docker compose up -d
 
 # 停止
-podman compose down
+docker compose down
 
 # 停止（DB ボリュームも削除）
-podman compose down -v
+docker compose down -v
 
 # ログ
-podman compose logs -f
-podman compose logs -f backend
+docker compose logs -f
+docker compose logs -f backend
 
 # イメージの再ビルド
-podman compose build
-podman compose up -d --build
+docker compose build
+docker compose up -d --build
 
 # コンテナに入る（対話シェル）
-podman compose exec frontend bash
-podman compose exec backend bash
+docker compose exec frontend bash
+docker compose exec backend bash
 ```
 
 各アプリコンテナのデフォルト CMD は `sleep infinity` です。開発サーバーや `dotnet run` はコンテナ内で手動実行する想定です。
@@ -114,30 +141,32 @@ podman compose exec backend bash
 ### 例: 開発サーバー
 
 ```bash
-# フロントエンド（Vite+ / Vite など、プロジェクトに合わせて調整）
-podman compose exec frontend bash -lc 'cd /app && <your dev command>'
+# フロントエンド（Vite+ / TanStack Start）
+docker compose exec frontend bash -lc 'cd /app && pnpm dev'
 
 # バックエンド
-podman compose exec backend bash -lc 'cd /app && dotnet run'
+docker compose exec backend bash -lc 'cd /app && dotnet run'
 ```
+
+フロントエンドから API を呼ぶときの URL は、ホストのブラウザからなら `http://localhost:8080`、コンテナ内からなら `http://backend:8080` など環境に合わせて設定してください（`frontend/.env.example` 参照）。
 
 ## データベース
 
-アプリから PostgreSQL に触るのは **バックエンドのみ** です。フロントエンドは API 経由とし、DB 用の環境変数は Compose / `.env` では用意しません。
+アプリから PostgreSQL に触るのは **バックエンドのみ** です。フロントエンドは API 経由とし、DB 用の環境変数は Compose / ルート `.env` では用意しません。
 
-Compose の `db` サービスは次の固定値で起動します（[`.containers/compose.yaml`](.containers/compose.yaml)）。
+Compose の `db` サービスは次の固定値で起動します（[compose.yaml](compose.yaml)）。
 
 | 項目 | 値 |
 |------|-----|
 | コンテナ内から（.NET・`backend`） | `Host=db;Port=5432;Database=db;Username=user;Password=password` |
-| データ永続化 | Podman ボリューム `${PROJECT_NAME}_pg_db` |
+| データ永続化 | Docker ボリューム `${PROJECT_NAME}_pg_db` |
 
-`backend` では上記が環境変数 `ConnectionStrings__PostgreSql` として注入されます。ASP.NET Core では `GetConnectionString("PostgreSql")` で参照できます（`appsettings.Development.json` に同名の接続文字列を書いておき、コンテナ内では compose の値が上書きする形が一般的です）。
+`backend` では上記が環境変数 `ConnectionStrings__PostgreSql` として注入されます。ASP.NET Core では `GetConnectionString("PostgreSql")` で参照できます。
 
 EF Core のマイグレーションなども **`backend` コンテナ内** で実行する想定です（`Host=db` のまま使えます）。
 
 ```bash
-podman compose exec backend bash -lc 'cd /app && dotnet ef database update'
+docker compose exec backend bash -lc 'cd /app && dotnet ef database update'
 ```
 
 （プロジェクトに EF ツールを入れている場合。コマンドはプロジェクトに合わせて読み替えてください。）
@@ -146,11 +175,11 @@ podman compose exec backend bash -lc 'cd /app && dotnet ef database update'
 
 ### LazySQL（任意・ホスト）
 
-DB を直接覗く必要があるときだけ、ホストから [LazySQL](https://github.com/jorgerojas26/lazysql) を使えます。**リポジトリ直下**に `.lazysql.toml` を置きます（`.gitignore` 対象）。接続先は公開ポート `localhost:5432` です（バックエンドのランタイム設定とは独立）。
+DB を直接覗く必要があるときだけ、ホストから [LazySQL](https://github.com/jorgerojas26/lazysql) を使えます。**リポジトリ直下**に `.lazysql.toml` を置きます（`.gitignore` 対象）。接続先は公開ポート `localhost:5432` です。
 
 ```toml
 [[database]]
-Name = "sample (podman db)"
+Name = "sample (compose db)"
 Provider = "postgres"
 URL = "postgres://user:password@localhost:5432/db?sslmode=disable"
 DBName = "db"
@@ -160,41 +189,52 @@ ReadOnly = false
 
 ## ボリュームとマウント
 
-- `../frontend` → `/app`（frontend）
-- `../backend` → `/app`（backend）
-- ホストの dotfiles（`DOTFILES_HOST`）→ コンテナ内 `/home/${USERNAME}/.config/dotfiles`（read-only）
-- Neovim データ（`~/.local/share/nvim` / `~/.local/state`）、`.ssh`（read-only）
+メインの [compose.yaml](compose.yaml):
 
-アプリコンテナは上記の `user` / `keep-id` 設定のため、`.env` の `UID` / `GID` をホストと揃えてから起動してください。
+- `${FRONTEND_HOST}` → `/app`（frontend）
+- `${BACKEND_HOST}` → `/app`（backend）
+- ホストの `~/.ssh` → コンテナ内（read-only）
 
-`frontend` / `backend` では `XDG_CONFIG_HOME` を dotfiles マウント先に合わせています。シェルは `base` イメージ構築時に、マウントされた dotfiles の `bash/.profile` / `bash/.bashrc` を source するよう設定されています。dotfiles 側で `scripts/symlink.sh` などを使う場合は、**必要に応じてコンテナ内で手動実行**してください（Compose による自動実行はありません）。
+[compose.personal.yaml](compose.personal.yaml) を重ねた場合の追加マウント:
+
+- ホストの dotfiles（`DOTFILES_HOST`）→ `/home/${USERNAME}/.config/dotfiles`（read-only）
+- dotfiles 内の nvim 設定 → `/home/${USERNAME}/.config/nvim`（read-only）
+- ホストの `~/.local/state`、Neovim データ用 named volume（`${PROJECT_NAME}_nvim_share`）
+
+アプリコンテナは `user: "${UID}:${GID}"` のため、`.env` の `UID` / `GID` をホストと揃えてから起動してください。
+
+`compose.personal.yaml` では `XDG_CONFIG_HOME` 等を dotfiles に合わせています。dotfiles 側でシンボリックリンク用スクリプトなどを使う場合は、**必要に応じてコンテナ内で手動実行**してください（Compose による自動実行はありません）。
 
 ## トラブルシューティング
 
 **`DEV_BASE_IMAGE` が見つからない / frontend・backend のビルドが失敗する**
 
-→ `podman compose --profile build-only build base` を実行し、`DEV_BASE_IMAGE` のタグが `.env` と一致しているか確認してください。
+→ `docker compose --profile build-only build base`（または `base-nvim`）を実行し、`DEV_BASE_IMAGE` のタグが `.env` と一致しているか確認してください。
 
 **ポートが既に使用中**
 
-→ ホストで 3000 / 8080 / 5432 を使っているプロセスを止めるか、[`.containers/compose.yaml`](.containers/compose.yaml) の `ports` を変更してください。
+→ ホストで 3000 / 8080 / 5432 を使っているプロセスを止めるか、[compose.yaml](compose.yaml) の `ports` を変更してください。
 
 **権限エラー（作成ファイルの所有者）**
 
-→ `.env` の `UID` / `GID` がホストの `id -u` / `id -g` と一致しているか確認し、変更した場合は `base` とアプリイメージを再ビルドしてから再起動してください。
+→ `.env` の `UID` / `GID` がホストの `id -u` / `id -g` と一致しているか確認し、変更した場合はベースとアプリイメージを再ビルドしてから再起動してください。
 
 ```bash
-podman compose --profile build-only build --no-cache base
-podman compose build --no-cache
-podman compose up -d
+docker compose --profile build-only build --no-cache base
+docker compose build --no-cache
+docker compose up -d
 ```
 
-**`podman compose` が見つからない**
+**マウント先が空 / 別ディレクトリを指している**
 
-→ 配布パッケージの `podman-compose` をインストールするか、Podman を新しいバージョンに更新してください。外部ツール `podman-compose`（Python）を使う場合は、README のコマンドを `podman-compose` に読み替えてください。
+→ `FRONTEND_HOST` / `BACKEND_HOST` が意図した絶対パスか確認してください。
+
+**`docker compose` が見つからない**
+
+→ Docker Desktop または Docker Engine + Compose プラグインをインストールしてください。[Install Docker Compose](https://docs.docker.com/compose/install/) を参照。
 
 ## 参考
 
-- Compose 定義: [`.containers/compose.yaml`](.containers/compose.yaml)
-- 環境変数テンプレート: [`.containers/.env.local`](.containers/.env.local)
-- Podman: [Installation](https://podman.io/docs/installation)
+- Compose 定義: [compose.yaml](compose.yaml)、任意: [compose.personal.yaml](compose.personal.yaml)
+- 環境変数テンプレート: [.env.example](.env.example)
+- Docker: [Install Docker Engine](https://docs.docker.com/engine/install/)

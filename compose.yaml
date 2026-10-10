@@ -8,21 +8,10 @@ services:
         UID: ${UID}
         GID: ${GID}
         USERNAME: ${USERNAME}
-    image: dev:base
-    profiles:
-      - build-only
-  base-nvim:
-    build:
-      context: .
-      dockerfile: base.nvim.Dockerfile
-      args:
-        UID: ${UID}
-        GID: ${GID}
-        USERNAME: ${USERNAME}
         EZA_VERSION: ${EZA_VERSION}
         NVIM_VERSION: ${NVIM_VERSION}
         TREE_SITTER_CLI_VERSION: ${TREE_SITTER_CLI_VERSION}
-    image: dev:nvim
+    image: dev:base
     profiles:
       - build-only
   frontend:
@@ -44,11 +33,18 @@ services:
       NODE_ENV: development
       SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-/tmp/ssh-agent.sock}
       TERM: xterm-256color
+      XDG_CONFIG_HOME: /home/${USERNAME}/.config
+      XDG_CACHE_HOME: /home/${USERNAME}/.cache
+      GIT_CONFIG_GLOBAL: /home/${USERNAME}/.config/dotfiles/git/config
     ports:
       - "3000:3000"
     volumes:
       - ${FRONTEND_HOST}:/app
       - ${HOME}/.ssh:/home/${USERNAME}/.ssh:ro
+      - ${HOME}/.local/state:/home/${USERNAME}/.local/state
+      - ${DOTFILES_HOST}:/home/${USERNAME}/.config/dotfiles:ro
+      - ${DOTFILES_HOST}/nvim:/home/${USERNAME}/.config/nvim:ro
+      - nvim_share:/home/${USERNAME}/.local/share/nvim
   backend:
     build:
       context: .
@@ -70,11 +66,18 @@ services:
       SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-/tmp/ssh-agent.sock}
       TERM: xterm-256color
       ConnectionStrings__PostgreSql: "Host=db;Port=5432;Database=db;Username=user;Password=password"
+      XDG_CONFIG_HOME: /home/${USERNAME}/.config
+      XDG_CACHE_HOME: /home/${USERNAME}/.cache
+      GIT_CONFIG_GLOBAL: /home/${USERNAME}/.config/dotfiles/git/config
     ports:
       - "8080:8080"
     volumes:
       - ${BACKEND_HOST}:/app
       - ${HOME}/.ssh:/home/${USERNAME}/.ssh:ro
+      - ${HOME}/.local/state:/home/${USERNAME}/.local/state
+      - ${DOTFILES_HOST}:/home/${USERNAME}/.config/dotfiles:ro
+      - ${DOTFILES_HOST}/nvim:/home/${USERNAME}/.config/nvim:ro
+      - nvim_share:/home/${USERNAME}/.local/share/nvim
     depends_on:
       db:
         condition: service_healthy
@@ -96,6 +99,9 @@ services:
 volumes:
   pg_db:
     name: ${PROJECT_NAME}_pg_db
+  nvim_share:
+    name: ${PROJECT_NAME}_nvim_share
+
 
 
 

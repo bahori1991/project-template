@@ -8,10 +8,21 @@ services:
         UID: ${UID}
         GID: ${GID}
         USERNAME: ${USERNAME}
-        NVIM_VERSION: ${NVIM_VERSION}
+    image: dev:base
+    profiles:
+      - build-only
+  base-nvim:
+    build:
+      context: .
+      dockerfile: base.nvim.Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
+        USERNAME: ${USERNAME}
         EZA_VERSION: ${EZA_VERSION}
+        NVIM_VERSION: ${NVIM_VERSION}
         TREE_SITTER_CLI_VERSION: ${TREE_SITTER_CLI_VERSION}
-    image: ${DEV_BASE_IMAGE}
+    image: dev:nvim
     profiles:
       - build-only
   frontend:
@@ -29,19 +40,14 @@ services:
     working_dir: /app
     env_file: .env
     environment:
+      CONTAINER_NAME: frontend
       NODE_ENV: development
       SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-/tmp/ssh-agent.sock}
       TERM: xterm-256color
-      XDG_CONFIG_HOME: /home/${USERNAME}/.config/dotfiles
-      GIT_CONFIG_GLOBAL: /home/${USERNAME}/.config/dotfiles/git/config
     ports:
       - "3000:3000"
     volumes:
-      - ../frontend:/app
-      - ${DOTFILES_HOST}:/home/${USERNAME}/.config/dotfiles:ro
-      - ${DOTFILES_HOST}/nvim/lazy-lock.json:/home/${USERNAME}/.config/dotfiles/nvim/lazy-lock.json:rw
-      - ${HOME}/.local/share/nvim:/home/${USERNAME}/.local/share/nvim
-      - ${HOME}/.local/state:/home/${USERNAME}/.local/state
+      - ${FRONTEND_HOST}:/app
       - ${HOME}/.ssh:/home/${USERNAME}/.ssh:ro
   backend:
     build:
@@ -58,21 +64,16 @@ services:
     working_dir: /app
     env_file: .env
     environment:
+      CONTAINER_NAME: backend
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       SSH_AUTH_SOCK: ${SSH_AUTH_SOCK:-/tmp/ssh-agent.sock}
       TERM: xterm-256color
       ConnectionStrings__PostgreSql: "Host=db;Port=5432;Database=db;Username=user;Password=password"
-      XDG_CONFIG_HOME: /home/${USERNAME}/.config/dotfiles
-      GIT_CONFIG_GLOBAL: /home/${USERNAME}/.config/dotfiles/git/config
     ports:
       - "8080:8080"
     volumes:
-      - ../backend:/app
-      - ${DOTFILES_HOST}:/home/${USERNAME}/.config/dotfiles:ro
-      - ${DOTFILES_HOST}/nvim/lazy-lock.json:/home/${USERNAME}/.config/dotfiles/nvim/lazy-lock.json:rw
-      - ${HOME}/.local/share/nvim:/home/${USERNAME}/.local/share/nvim
-      - ${HOME}/.local/state:/home/${USERNAME}/.local/state
+      - ${BACKEND_HOST}:/app
       - ${HOME}/.ssh:/home/${USERNAME}/.ssh:ro
     depends_on:
       db:

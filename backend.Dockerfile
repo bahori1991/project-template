@@ -15,10 +15,15 @@ RUN apt update && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 ENV DOTNET_CLI_HOME=${HOME}
-ENV PATH="/usr/share/dotnet:${PATH}"
 
-# --- Set User, Home directory and WORKDIR ---
+# --- Set User and Workdir ---
 USER ${USERNAME}
 WORKDIR /app
+
+# --- Install .NET global tools (easy-dotnet etc.) ---
+ENV PATH="${HOME}/.dotnet/tools:/usr/share/dotnet:${PATH}"
+RUN dotnet tool install -g EasyDotnet
+
+# --- Settings ---
 EXPOSE 8080
 CMD ["/usr/bin/sleep", "infinity"]

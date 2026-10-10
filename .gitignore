@@ -1,4 +1,6 @@
+frontend/
+backend/
 *.env
-!*.env.local
-
+!*.env.example
 *.lazysql.toml
+

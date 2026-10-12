@@ -7,6 +7,7 @@ FROM ${DEV_BASE_IMAGE}
 ARG USERNAME
 
 # --- Install .NET 10 ---
+USER root
 ENV HOME=/home/${USERNAME}
 ENV DOTNET_VERSION=10.0
 RUN apt update && \

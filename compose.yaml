@@ -12,7 +12,7 @@ services:
         NVIM_VERSION: ${NVIM_VERSION}
         TREE_SITTER_CLI_VERSION: ${TREE_SITTER_CLI_VERSION}
       labels:
-        dev.sample.build-input-hash: ${DEV_SAMPLE_BUILD_HASH_BASE}
+        dev.sample.build-input-hash: ${DEV_SAMPLE_BUILD_HASH_BASE:-}
     image: dev:base
     profiles:
       - build-only
@@ -24,7 +24,7 @@ services:
         DEV_BASE_IMAGE: ${DEV_BASE_IMAGE}
         USERNAME: ${USERNAME}
       labels:
-        dev.sample.build-input-hash: ${DEV_SAMPLE_BUILD_HASH_FRONTEND}
+        dev.sample.build-input-hash: ${DEV_SAMPLE_BUILD_HASH_FRONTEND:-}
     userns_mode: keep-id
     user: "${UID}:${GID}"
     init: true
@@ -54,7 +54,7 @@ services:
         DEV_BASE_IMAGE: ${DEV_BASE_IMAGE}
         USERNAME: ${USERNAME}
       labels:
-        dev.sample.build-input-hash: ${DEV_SAMPLE_BUILD_HASH_BACKEND}
+        dev.sample.build-input-hash: ${DEV_SAMPLE_BUILD_HASH_BACKEND:-}
     userns_mode: keep-id
     user: "${UID}:${GID}"
     init: true

@@ -66,11 +66,11 @@ RUN install -d -m 0755 -o "${USERNAME}" -g "${GID}" \
     "/home/${USERNAME}/.config" \
     "/home/${USERNAME}/.local/share"
 
-# --- Shell: load dotfiles without symlinks (volume at runtime) ---
-RUN printf '%s\n' \
-    '[ -f "$HOME/.config/dotfiles/bash/.profile" ] && . "$HOME/.config/dotfiles/bash/.profile"' \
-      > "/home/${USERNAME}/.profile" && \
-    printf '%s\n' \
-    '[ -f "$HOME/.config/dotfiles/bash/.bashrc" ] && . "$HOME/.config/dotfiles/bash/.bashrc"' \
-      > "/home/${USERNAME}/.bashrc" && \
-    chown "${USERNAME}:${USERNAME}" "/home/${USERNAME}/.profile" "/home/${USERNAME}/.bashrc"
+# --- Create symlinks ---
+COPY symlink.sh /usr/local/bin/symlink.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod 755 /usr/local/bin/symlink.sh /usr/local/bin/entrypoint.sh
+USER ${USERNAME}
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/usr/bin/sleep", "infinity"]
+

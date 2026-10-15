@@ -253,8 +253,8 @@ else
   docker compose up -d --wait
 fi
 
-# tmux: 右列 agent の幅、左列 nvim 上段の高さ（%）
-AGENT_PANE_PERCENT=35
+# tmux: 右列 claude の幅、左列 nvim 上段の高さ（%）
+CLAUDE_PANE_PERCENT=35
 NVIM_PANE_PERCENT=35
 
 read_pane_indices() {
@@ -264,7 +264,7 @@ read_pane_indices() {
   fi
   NVIM_PANE=$((PANE_BASE))
   TERM_PANE=$((PANE_BASE + 1))
-  AGENT_PANE=$((PANE_BASE + 2))
+  CLAUDE_PANE=$((PANE_BASE + 2))
 }
 
 read_term_dimensions() {
@@ -280,7 +280,7 @@ read_term_dimensions() {
 }
 
 
-# --- 3〜5. tmux: サービスごとにウインドウと 3 ペイン（nvim / terminal / agent）---
+# --- 3〜5. tmux: サービスごとにウインドウと 3 ペイン（nvim / terminal / claude）---
 setup_service_window() {
   local win_name=$1
   local service=$2
@@ -298,20 +298,28 @@ setup_service_window() {
     tmux new-window -t "$PROJECT_NAME" -n "$win_name" -c "$ROOT"
   fi
 
-  # 先に横分割 → 右ペインが agent 列（ウインドウ全高）。続けて左列だけ縦分割
+  # 先に横分割 → 右ペインが claude 列（ウインドウ全高）。続けて左列だけ縦分割
   tmux resize-window -t "$win_target" -x "$TERM_COLS" -y "$TERM_LINES"
-  tmux split-window -h -t "$win_target" -p "$AGENT_PANE_PERCENT"
+  tmux split-window -h -t "$win_target" -p "$CLAUDE_PANE_PERCENT"
   tmux select-pane -t "${win_target}.${NVIM_PANE}"
   tmux split-window -v -t "${win_target}.${NVIM_PANE}" -p "$NVIM_PANE_PERCENT"
 
-  # 左上 nvim、左下 terminal、右 agent（split 順による index）
-  local nvim_cmd="docker compose exec -it ${service} bash -lc 'nvim'"
-  local term_cmd="docker compose exec -it ${service} bash"
-  local agent_cmd="cd $(printf '%q' "$host_path") && agent"
+  # service_idの取得 (docker直叩きに必要)
+  local service_id
+  service_id="$(docker compose ps -q "$service")"
+  if [[ -z "$service_id" ]]; then
+    echo "dev.sh: no running container for service: $service" >&2
+    exit 1
+  fi
+
+  # 左上 nvim、左下 terminal、右 claude（split 順による index）
+  local nvim_cmd="docker exec --detach-keys='' -it -u "${UID}:$(id -g)" -w /app ${service_id} bash -lc 'nvim'"
+  local term_cmd="docker exec --detach-keys='' -it -u "${UID}:$(id -g)" -w /app ${service_id} bash"
+  local claude_cmd="cd $(printf '%q' "$host_path") && claude"
 
   tmux send-keys -t "${win_target}.${NVIM_PANE}" "$nvim_cmd" C-m
   tmux send-keys -t "${win_target}.${TERM_PANE}" "$term_cmd" C-m
-  tmux send-keys -t "${win_target}.${AGENT_PANE}" "$agent_cmd" C-m
+  tmux send-keys -t "${win_target}.${CLAUDE_PANE}" "$claude_cmd" C-m
   
   tmux select-pane -t "${win_target}.${NVIM_PANE}"
 }

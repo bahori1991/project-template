@@ -4,7 +4,6 @@
 ARG DEV_BASE_IMAGE
 FROM ${DEV_BASE_IMAGE}
 
-
 # --- Set non-root user before install Vite+
 ARG USERNAME
 USER ${USERNAME}

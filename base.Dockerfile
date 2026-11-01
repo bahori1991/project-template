@@ -13,9 +13,8 @@ FROM ubuntu:24.04
  
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Tokyo
-ENV LANG=ja_JP.utf8
-ENV LC_ALL=ja_JP.utf8
-ENV LANGUAGE=ja_JP:ja
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 ARG UID
 ARG GID
@@ -26,9 +25,7 @@ ARG NVIM_VERSION
 # Install essential-packages
 RUN apt update &&\
     apt install -y --no-install-recommends \
-      ca-certificates curl git tzdata locales ripgrep fd-find build-essential unzip tar procps && \
-    sed -i '/ja_JP.UTF-8/s/^# //' /etc/locale.gen && \
-    locale-gen ja_JP.UTF-8 && \
+      ca-certificates curl git tzdata ripgrep fd-find build-essential unzip tar procps jq && \
     ln -sf /usr/bin/fdfind /usr/local/bin/fd && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
@@ -64,13 +61,18 @@ RUN groupadd -g "${GID}" "${USERNAME}" && \
 # --- Create a .config and .local/share directories ---
 RUN install -d -m 0755 -o "${USERNAME}" -g "${GID}" \
     "/home/${USERNAME}/.config" \
-    "/home/${USERNAME}/.local/share"
+    "/home/${USERNAME}/.local" \
+    "/home/${USERNAME}/.local/bin" \
+    "/home/${USERNAME}/.local/share" \
+    "/home/${USERNAME}/.local/state"
 
-# --- Create symlinks ---
-COPY symlink.sh /usr/local/bin/symlink.sh
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod 755 /usr/local/bin/symlink.sh /usr/local/bin/entrypoint.sh
 USER ${USERNAME}
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+# --- Install Claude Code (native installer, places binary in ~/.local/bin) ---
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+RUN curl -fsSL --proto "=https" --tlsv1.2 https://claude.ai/install.sh -o /tmp/claude-install.sh && \
+    bash /tmp/claude-install.sh && \
+    rm -f /tmp/claude-install.sh && \
+    claude --version
 CMD ["/usr/bin/sleep", "infinity"]
 

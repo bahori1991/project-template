@@ -74,5 +74,11 @@ RUN curl -fsSL --proto "=https" --tlsv1.2 https://claude.ai/install.sh -o /tmp/c
     bash /tmp/claude-install.sh && \
     rm -f /tmp/claude-install.sh && \
     claude --version
+
+# --- Install graphify (uv manages its own Python) ---
+RUN curl -fsSL https://astral.sh/uv/install.sh | sh && \
+    uv tool install graphifyy && \
+    graphify --help > /dev/null
+
 CMD ["/usr/bin/sleep", "infinity"]
 

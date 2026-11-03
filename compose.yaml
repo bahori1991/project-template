@@ -41,7 +41,7 @@ services:
       XDG_CONFIG_HOME: /home/${USERNAME}/.config
       XDG_CACHE_HOME: /home/${USERNAME}/.cache
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - ${FRONTEND_HOST}:/app
       - ${HOME}/.config/dotfiles:/home/${USERNAME}/.config/dotfiles:ro
@@ -80,7 +80,7 @@ services:
       XDG_CONFIG_HOME: /home/${USERNAME}/.config
       XDG_CACHE_HOME: /home/${USERNAME}/.cache
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ${BACKEND_HOST}:/app
       - ${HOME}/.config/dotfiles:/home/${USERNAME}/.config/dotfiles:ro
@@ -102,7 +102,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-db}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pg_db:/var/lib/postgresql
     healthcheck:
